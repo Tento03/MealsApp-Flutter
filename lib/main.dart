@@ -1,13 +1,18 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:mealapp/category.dart';
 import 'package:mealapp/favorite.dart';
+import 'package:mealapp/model/favorite.dart';
 import 'package:mealapp/search.dart';
 import 'package:mealapp/model/category.dart';
 
-void main(List<String> args) {
+void main(List<String> args) async {
+  await Hive.initFlutter;
+  Hive.registerAdapter(FavoriteAdapter());
+  await Hive.openBox<Favorite>('favBox');
   runApp(MyApp());
 }
 
@@ -85,6 +90,8 @@ class CategoriesPage extends StatefulWidget {
 class _CategoriesPageState extends State<CategoriesPage> {
   List<Categories> categories = [];
   bool isLoading = true;
+  Box<Favorite> favBox = Hive.box<Favorite>('favBox');
+  List<String> favMeal = [];
 
   @override
   void initState() {
@@ -114,6 +121,30 @@ class _CategoriesPageState extends State<CategoriesPage> {
     }
   }
 
+  void addFavorite(String idCategory, Categories categories) {
+    setState(() {
+      if (favMeal.contains(idCategory)) {
+        favMeal.remove(idCategory);
+        final indextoDelete = favBox.values.toList().indexWhere(
+          (fav) => fav.idCategory == idCategory,
+        );
+        if (indextoDelete != 1) {
+          favBox.deleteAt(indextoDelete);
+        }
+      } else {
+        favMeal.add(idCategory);
+        favBox.add(
+          Favorite(
+            idCategory: categories.idCategory ?? 'null',
+            strCategory: categories.strCategory ?? 'null',
+            strCategoryThumb: categories.strCategoryThumb ?? 'null',
+            strCategoryDescription: categories.strCategoryDescription ?? 'null',
+          ),
+        );
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return isLoading
@@ -124,15 +155,30 @@ class _CategoriesPageState extends State<CategoriesPage> {
               child: ListView.builder(
                 itemCount: categories.length,
                 itemBuilder: (context, index) {
+                  final categoriess = categories[index];
                   return ListTile(
                     leading: CircleAvatar(
                       backgroundImage: NetworkImage(
-                        '${categories[index].strCategoryThumb}',
+                        '${categoriess.strCategoryThumb}',
                       ),
                     ),
-                    title: Text('${categories[index].strCategory}'),
-                    subtitle: Text(
-                      "${categories[index].strCategoryDescription}",
+                    title: Text('${categoriess.strCategory}'),
+                    subtitle: Text("${categoriess.strCategoryDescription}"),
+                    trailing: IconButton(
+                      onPressed:
+                          () => addFavorite(
+                            categoriess.idCategory ?? 'null',
+                            categories[index],
+                          ),
+                      icon: Icon(
+                        favMeal.contains(categoriess.idCategory)
+                            ? Icons.favorite
+                            : Icons.favorite_border,
+                      ),
+                      color:
+                          favMeal.contains(categoriess.idCategory)
+                              ? Colors.red
+                              : null,
                     ),
                   );
                 },
